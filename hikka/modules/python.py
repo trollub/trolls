@@ -1,24 +1,32 @@
-# ©️ Dan Gazizullin, 2021-2022
-# This file is a part of Hikka Userbot
-# 🌐 https://github.com/hikariatama/Hikka
-# You can redistribute it and/or modify it under the terms of the GNU AGPLv3
-# 🔑 https://www.gnu.org/licenses/agpl-3.0.html
+"""
+    █ █ ▀ █▄▀ ▄▀█ █▀█ ▀    ▄▀█ ▀█▀ ▄▀█ █▀▄▀█ ▄▀█
+    █▀█ █ █ █ █▀█ █▀▄ █ ▄  █▀█  █  █▀█ █ ▀ █ █▀█
 
-import contextlib
-import itertools
-import os
-import sys
-import typing
-from types import ModuleType
+    Copyright 2022 t.me/hikariatama
+    Licensed under the GNU GPLv3
+"""
 
+import logging
 import telethon
 from meval import meval
-from telethon.errors.rpcerrorlist import MessageIdInvalidError
-from telethon.sessions import StringSession
+from .. import loader, utils, main
+from traceback import format_exc
+import itertools
+from types import ModuleType
 from telethon.tl.types import Message
+from aiogram.types import CallbackQuery
 
-from .. import loader, main, utils
-from ..log import HikkaException
+logger = logging.getLogger(__name__)
+
+
+class FakeDbException(Exception):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class FakeDb:
+    def __getattr__(self, *args, **kwargs):
+        raise FakeDbException("Database read-write permission required")
 
 
 @loader.tds
@@ -27,217 +35,89 @@ class PythonMod(loader.Module):
 
     strings = {
         "name": "Python",
-        "eval": (
-            "<emoji document_id=4985626654563894116>💻</emoji><b>"
-            " Code:</b>\n<code>{}</code>\n\n<emoji"
-            " document_id=5197688912457245639>✅</emoji><b>"
-            " Result:</b>\n<code>{}</code>"
-        ),
-        "err": (
-            "<emoji document_id=4985626654563894116>💻</emoji><b>"
-            " Code:</b>\n<code>{}</code>\n\n<emoji"
-            " document_id=5312526098750252863>🚫</emoji> <b>Error:</b>\n{}"
+        "eval": "<b>🎬 Code:</b>\n<code>{}</code>\n<b>🪄 Result:</b>\n<code>{}</code>",
+        "err": "<b>🎬 Code:</b>\n<code>{}</code>\n\n<b>🚫 Error:</b>\n<code>{}</code>",
+        "db_permission": (
+            "⚠️ <b>Do not use </b><code>db.set</code><b>,"
+            "</b><code>db.get</code><b> and other db operations."
+            "You have core modules to control anything you want</b>\n\n"
+            "<i>Theses commands may <b><u>crash</u></b> your userbot "
+            "or even make it <b><u>unusable</u></b>!</i>\n\n"
+            "<i>If you issue any errors after allowing this option "
+            "<b><u>you will not get any help in support chat</u></b>!</i>"
         ),
     }
 
-    strings_ru = {
-        "eval": (
-            "<emoji document_id=4985626654563894116>💻</emoji><b>"
-            " Код:</b>\n<code>{}</code>\n\n<emoji"
-            " document_id=5197688912457245639>✅</emoji><b>"
-            " Результат:</b>\n<code>{}</code>"
-        ),
-        "err": (
-            "<emoji document_id=4985626654563894116>💻</emoji><b>"
-            " Код:</b>\n<code>{}</code>\n\n<emoji"
-            " document_id=5312526098750252863>🚫</emoji> <b>Ошибка:</b>\n{}"
-        ),
-        "_cls_doc": "Выполняет Python код",
-    }
+    async def client_ready(self, client, db):
+        self._client = client
+        self._db = db
 
-    strings_it = {
-        "eval": (
-            "<emoji document_id=4985626654563894116>💻</emoji><b>"
-            " Codice:</b>\n<code>{}</code>\n\n<emoji"
-            " document_id=5197688912457245639>✅</emoji><b>"
-            " Risultato:</b>\n<code>{}</code>"
-        ),
-        "err": (
-            "<emoji document_id=4985626654563894116>💻</emoji><b>"
-            " Codice:</b>\n<code>{}</code>\n\n<emoji"
-            " document_id=5312526098750252863>🚫</emoji> <b>Errore:</b>\n{}"
-        ),
-        "_cls_doc": "Esegue codice Python",
-    }
-
-    strings_de = {
-        "eval": (
-            "<emoji document_id=4985626654563894116>💻</emoji><b>"
-            " Code:</b>\n<code>{}</code>\n\n<emoji"
-            " document_id=5197688912457245639>✅</emoji><b>"
-            " Resultat:</b>\n<code>{}</code>"
-        ),
-        "err": (
-            "<emoji document_id=4985626654563894116>💻</emoji><b>"
-            " Code:</b>\n<code>{}</code>\n\n<emoji"
-            " document_id=5312526098750252863>🚫</emoji> <b>Fehler:</b>\n{}"
-        ),
-        "_cls_doc": "Führt Python Code aus",
-    }
-
-    strings_tr = {
-        "eval": (
-            "<emoji document_id=4985626654563894116>💻</emoji><b>"
-            " Kod:</b>\n<code>{}</code>\n\n<emoji"
-            " document_id=5197688912457245639>✅</emoji><b>"
-            " Sonuç:</b>\n<code>{}</code>"
-        ),
-        "err": (
-            "<emoji document_id=4985626654563894116>💻</emoji><b>"
-            " Kod:</b>\n<code>{}</code>\n\n<emoji"
-            " document_id=5312526098750252863>🚫</emoji> <b>Hata:</b>\n{}"
-        ),
-        "_cls_doc": "Python kodunu çalıştırır",
-    }
-
-    strings_uz = {
-        "eval": (
-            "<emoji document_id=4985626654563894116>💻</emoji><b>"
-            " Kod:</b>\n<code>{}</code>\n\n<emoji"
-            " document_id=5197688912457245639>✅</emoji><b>"
-            " Natija:</b>\n<code>{}</code>"
-        ),
-        "err": (
-            "<emoji document_id=4985626654563894116>💻</emoji><b>"
-            " Kod:</b>\n<code>{}</code>\n\n<emoji"
-            " document_id=5312526098750252863>🚫</emoji> <b>Xato:</b>\n{}"
-        ),
-        "_cls_doc": "Python kodini ishga tushiradi",
-    }
-
-    strings_es = {
-        "eval": (
-            "<emoji document_id=4985626654563894116>💻</emoji><b>"
-            " Código:</b>\n<code>{}</code>\n\n<emoji"
-            " document_id=5197688912457245639>✅</emoji><b>"
-            " Resultado:</b>\n<code>{}</code>"
-        ),
-        "err": (
-            "<emoji document_id=4985626654563894116>💻</emoji><b>"
-            " Código:</b>\n<code>{}</code>\n\n<emoji"
-            " document_id=5312526098750252863>🚫</emoji> <b>Error:</b>\n{}"
-        ),
-        "_cls_doc": "Ejecuta código Python",
-    }
-
-    strings_kk = {
-        "eval": (
-            "<emoji document_id=4985626654563894116>💻</emoji><b>"
-            " Код:</b>\n<code>{}</code>\n\n<emoji"
-            " document_id=5197688912457245639>✅</emoji><b>"
-            " Нәтиже:</b>\n<code>{}</code>"
-        ),
-        "err": (
-            "<emoji document_id=4985626654563894116>💻</emoji><b>"
-            " Код:</b>\n<code>{}</code>\n\n<emoji"
-            " document_id=5312526098750252863>🚫</emoji> <b>Қате:</b>\n{}"
-        ),
-        "_cls_doc": "Python кодын орындау",
-    }
-
-    strings_tt = {
-        "eval": (
-            "<emoji document_id=4985626654563894116>💻</emoji><b>"
-            " Код:</b>\n<code>{}</code>\n<emoji"
-            " document_id=5197688912457245639>✅</emoji><b>"
-            " Нәтиҗә:</b>\n<code>{}</code>"
-        ),
-        "err": (
-            "<emoji document_id=4985626654563894116>💻</emoji><b>"
-            " Код:</b>\n<code>{}</code>\n\n<emoji"
-            " document_id=5312526098750252863>🚫</emoji> <b>Хата:</b>\n{}"
-        ),
-        "_cls_doc": "Башкара Python коды",
-    }
+    def lookup(self, modname: str):
+        return next(
+            (
+                mod
+                for mod in self.allmodules.modules
+                if mod.name.lower() == modname.lower()
+            ),
+            False,
+        )
 
     @loader.owner
-    @loader.command(
-        ru_doc="Выполняет Python код",
-        it_doc="Esegue codice Python",
-        de_doc="Führt Python Code aus",
-        tr_doc="Python kodu çalıştırır",
-        uz_doc="Python kodini ishga tushiradi",
-        es_doc="Ejecuta código Python",
-        kk_doc="Python кодын орындау",
-        alias="eval",
-    )
-    async def e(self, message: Message):
-        """Evaluates python code"""
-        try:
-            result = await meval(
-                utils.get_args_raw(message),
-                globals(),
-                **await self.getattrs(message),
-            )
-        except Exception:
-            item = HikkaException.from_exc_info(*sys.exc_info())
+    async def evalcmd(self, message: Message) -> None:
+        """Alias for .e command"""
+        await self.ecmd(message)
 
+    async def inline__close(self, call: CallbackQuery) -> None:
+        await call.answer("Operation cancelled")
+        await call.delete()
+
+    async def inline__allow(self, call: CallbackQuery) -> None:
+        await call.answer("Now you can access db through .e command", show_alert=True)
+        self._db.set(main.__name__, "enable_db_eval", True)
+        await call.delete()
+
+    @loader.owner
+    async def ecmd(self, message: Message) -> None:
+        """Evaluates python code"""
+        phone = self._client.phone
+        ret = self.strings("eval", message)
+        try:
+            it = await meval(
+                utils.get_args_raw(message), globals(), **await self.getattrs(message)
+            )
+        except FakeDbException:
+            await self.inline.form(
+                self.strings("db_permission"),
+                message=message,
+                reply_markup=[
+                    [
+                        {
+                            "text": "✅ Allow",
+                            "callback": self.inline__allow,
+                        },
+                        {"text": "🚫 Cancel", "callback": self.inline__close},
+                    ]
+                ],
+            )
+            return
+        except Exception:
+            exc = format_exc().replace(phone, "📵")
             await utils.answer(
                 message,
-                self.strings("err").format(
+                self.strings("err", message).format(
                     utils.escape_html(utils.get_args_raw(message)),
-                    self.censor(
-                        (
-                            "\n".join(item.full_stack.splitlines()[:-1])
-                            + "\n\n"
-                            + "🚫 "
-                            + item.full_stack.splitlines()[-1]
-                        )
-                    ),
+                    utils.escape_html(exc),
                 ),
             )
 
             return
-
-        if callable(getattr(result, "stringify", None)):
-            with contextlib.suppress(Exception):
-                result = str(result.stringify())
-
-        with contextlib.suppress(MessageIdInvalidError):
-            await utils.answer(
-                message,
-                self.strings("eval").format(
-                    utils.escape_html(utils.get_args_raw(message)),
-                    utils.escape_html(self.censor(str(result))),
-                ),
-            )
-
-    def censor(self, ret: str) -> str:
-        ret = ret.replace(str(self._client.hikka_me.phone), "&lt;phone&gt;")
-
-        if redis := os.environ.get("REDIS_URL") or main.get_config_key("redis_uri"):
-            ret = ret.replace(redis, f'redis://{"*" * 26}')
-
-        if db := os.environ.get("DATABASE_URL") or main.get_config_key("db_uri"):
-            ret = ret.replace(db, f'postgresql://{"*" * 26}')
-
-        if btoken := self._db.get("hikka.inline", "bot_token", False):
-            ret = ret.replace(
-                btoken,
-                f'{btoken.split(":")[0]}:{"*" * 26}',
-            )
-
-        if htoken := self.lookup("loader").get("token", False):
-            ret = ret.replace(htoken, f'eugeo_{"*" * 26}')
-
-        ret = ret.replace(
-            StringSession.save(self._client.session),
-            "StringSession(**************************)",
+        ret = ret.format(
+            utils.escape_html(utils.get_args_raw(message)), utils.escape_html(it)
         )
+        ret = ret.replace(str(phone), "📵")
+        await utils.answer(message, ret)
 
-        return ret
-
-    async def getattrs(self, message: Message) -> dict:
+    async def getattrs(self, message):
         reply = await message.get_reply_message()
         return {
             **{
@@ -252,17 +132,25 @@ class PythonMod(loader.Module):
                 "telethon": telethon,
                 "utils": utils,
                 "main": main,
-                "loader": loader,
                 "f": telethon.tl.functions,
                 "c": self._client,
                 "m": message,
+                "loader": loader,
                 "lookup": self.lookup,
                 "self": self,
-                "db": self.db,
             },
+            **(
+                {
+                    "db": self._db,
+                }
+                if self._db.get(main.__name__, "enable_db_eval", False)
+                else {
+                    "db": FakeDb(),
+                }
+            ),
         }
 
-    def get_sub(self, obj: typing.Any, _depth: int = 1) -> dict:
+    def get_sub(self, it, _depth: int = 1) -> dict:
         """Get all callable capitalised objects in an object recursively, ignoring _*"""
         return {
             **dict(
@@ -270,7 +158,7 @@ class PythonMod(loader.Module):
                     lambda x: x[0][0] != "_"
                     and x[0][0].upper() == x[0][0]
                     and callable(x[1]),
-                    obj.__dict__.items(),
+                    it.__dict__.items(),
                 )
             ),
             **dict(
@@ -280,10 +168,10 @@ class PythonMod(loader.Module):
                         for y in filter(
                             lambda x: x[0][0] != "_"
                             and isinstance(x[1], ModuleType)
-                            and x[1] != obj
+                            and x[1] != it
                             and x[1].__package__.rsplit(".", _depth)[0]
                             == "telethon.tl",
-                            obj.__dict__.items(),
+                            it.__dict__.items(),
                         )
                     ]
                 )
