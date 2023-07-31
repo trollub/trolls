@@ -36,11 +36,11 @@ ALL_INVOKES = [
 
 
 @loader.tds
-class HikkaSettingsMod(loader.Module):
+class TrollSettingsMod(loader.Module):
     """Advanced settings for Hikka Userbot"""
 
     strings = {
-        "name": "HikkaSettings",
+        "name": "TrollSettings",
         "watchers": (
             "<emoji document_id=5424885441100782420>👀</emoji>"
             " <b>Watchers:</b>\n\n<b>{}</b>"
