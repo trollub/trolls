@@ -36,7 +36,7 @@ class UpdaterMod(loader.Module):
             " from</b> <a href='{}'>here</a>"
         ),
         "restarting_caption": (
-            "<emoji document_id=5328274090262275771>🕗</emoji> <b>Your {} is"
+            "<emoji document_id=5328274090262275771>🕗</emoji> <b>Your TrollUB is"
             " restarting...</b>"
         ),
         "downloading": (
